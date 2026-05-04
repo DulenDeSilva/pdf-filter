@@ -1,0 +1,108 @@
+# -------------------------
+# Python
+# -------------------------
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.Python
+.python-version
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Python packaging/build
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# Test/cache files
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# -------------------------
+# Environment / secrets
+# -------------------------
+.env
+.env.*
+!.env.example
+
+# -------------------------
+# PDF input/output files
+# -------------------------
+input/
+output/
+uploads/
+downloads/
+storage/
+processed/
+filtered/
+tmp/
+temp/
+
+# Original and generated documents
+*.pdf
+*.PDF
+
+# If you want to commit a few sample PDFs, put them in samples/
+# and remove the next line if needed.
+samples/*.pdf
+
+# -------------------------
+# Logs and generated reports
+# -------------------------
+*.log
+logs/
+filter_log.json
+*_filter_log.json
+*.jsonl
+
+# Generated extraction/filter artifacts
+*_filtered.pdf
+*_filtered_pages.pdf
+*_financial_pages.pdf
+*_page_map.json
+*_classification.json
+*_filter_result.json
+
+# -------------------------
+# OCR / image artifacts
+# -------------------------
+*.png
+*.jpg
+*.jpeg
+*.tiff
+*.bmp
+*.webp
+page_images/
+ocr_output/
+
+# -------------------------
+# Database/local files
+# -------------------------
+*.db
+*.sqlite
+*.sqlite3
+
+# -------------------------
+# IDE/editor files
+# -------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# -------------------------
+# OS files
+# -------------------------
+.DS_Store
+Thumbs.db
