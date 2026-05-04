@@ -68,7 +68,7 @@ QUARTERLY_KEYWORDS = [
 FINANCIAL_START_PATTERNS = [
     r"\bindependent auditor[’']?s? report\b",
     r"\bindependent auditors[’']? report\b",
-    r"\bfinancial statements\b",
+    r"\bfinancial information\b",
     r"\bstatement of profit or loss\b",
     r"\bstatement of comprehensive income\b",
     r"\bstatement of profit or loss and other comprehensive income\b",
@@ -110,6 +110,8 @@ FINANCIAL_SECTION_PATTERNS = [
 # but your project wants them included.
 WANTED_SECTION_PATTERNS = [
     r"\bfinancial highlights\b",
+    r"\bperformance highlights\b",
+    r"\bfinancial review\b",
     r"\brisk management\b",
     r"\bfinancial commentary\b",
     r"\boperational review\b",
@@ -163,8 +165,14 @@ END_SECTION_PATTERNS = [
 ]
 
 UNWANTED_PATTERNS = [
+    r"\btable of contents\b",
+    r"\bcontents\b",
+    r"\babout us\b",
+
+    r"\bchairman[’']?s review\b",
     r"\bchairman[’']?s message\b",
     r"\bchairperson[’']?s message\b",
+    r"\bdirector/ceo[’']?s review\b",
     r"\bchief executive officer\b",
     r"\bceo[’']?s review\b",
     r"\bboard of directors\b",
@@ -349,20 +357,19 @@ def find_annual_financial_range(
     end_page = None
     notes_started = False
 
-    # Find start from heading area first, then full page text.
+    # Start only from heading area.
+    # Do not use full_text here, because table of contents and body text
+    # can mention financial statements and cause early false starts.
     for page in classified_pages:
         heading_text = page["headingText"]
-        full_text = page["normalizedText"]
 
-        if has_pattern(heading_text, FINANCIAL_START_PATTERNS) or has_pattern(full_text, FINANCIAL_START_PATTERNS):
+        if has_pattern(heading_text, FINANCIAL_START_PATTERNS):
             start_page = page["pageNumber"]
             break
 
     if start_page is None:
         return None, None
 
-    # End only after notes have started.
-    # This avoids ending too early before important notes.
     for page in classified_pages:
         page_number = page["pageNumber"]
         heading_text = page["headingText"]
@@ -374,7 +381,8 @@ def find_annual_financial_range(
         if has_pattern(full_text, NOTES_START_PATTERNS):
             notes_started = True
 
-        # Use heading area for end markers to avoid accidental matches inside note body text.
+        # End only after notes have started.
+        # End markers are checked only in heading area.
         if notes_started and has_pattern(heading_text, END_SECTION_PATTERNS):
             end_page = page_number - 1
             break
