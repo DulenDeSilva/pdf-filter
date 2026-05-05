@@ -20,6 +20,7 @@ class FilterResult(TypedDict):
     removedPages: list[int]
     pageRanges: list[PageRange]
     filteredPdfPath: Optional[str]
+    selectedPagesJsonPath: Optional[str]
     filteredPageMap: dict[str, int]
     confidence: float
     totalPages: int
@@ -28,7 +29,7 @@ class FilterResult(TypedDict):
     detectedSections: dict[str, int]
 
 
-NotesMode = Literal["none", "first", "full"]
+NotesMode = Literal["none", "first", "important", "full"]
 
 
 ANNUAL_KEYWORDS = [
@@ -59,12 +60,21 @@ QUARTERLY_KEYWORDS = [
     r"\bunaudited\b",
 ]
 
+LEGAL_DOCUMENT_KEYWORDS = [
+    r"\btrust deed\b",
+    r"\bdebenture\b",
+    r"\bdebentures\b",
+    r"\btrustee\b",
+    r"\bevent of default\b",
+    r"\bdate of allotment\b",
+    r"\bdate of redemption\b",
+    r"\bredemption\b",
+]
 
 TOC_PATTERNS = [
     r"\bcontents\b",
     r"\btable of contents\b",
 ]
-
 
 SECTION_PATTERNS = {
     "independent_auditor_report": [
@@ -98,6 +108,115 @@ SECTION_PATTERNS = {
     ],
 }
 
+TRADER_USEFUL_SECTION_PATTERNS = {
+    "financial_highlights": [
+        r"\bfinancial highlights\b",
+        r"\bperformance highlights\b",
+        r"\bkey financial highlights\b",
+        r"\bfinancial goals and achievements\b",
+    ],
+    "investor_information": [
+        r"\binvestor information\b",
+        r"\binvestor relations\b",
+        r"\bshareholder information\b",
+        r"\binformation to shareholders\b",
+        r"\blargest shareholders\b",
+        r"\bmarket information\b",
+    ],
+    "historical_summary": [
+        r"\bfive year summary\b",
+        r"\bten year summary\b",
+        r"\bfinancial information for last ten years\b",
+        r"\bhistorical summary\b",
+    ],
+    "bank_key_ratios": [
+        r"\bcapital adequacy\b",
+        r"\bliquidity coverage ratio\b",
+        r"\bnet stable funding ratio\b",
+        r"\bcommon equity tier 1\b",
+        r"\btier 1 capital\b",
+        r"\btotal capital ratio\b",
+        r"\bimpaired loans\b",
+        r"\bnet interest margin\b",
+    ],
+}
+
+IMPORTANT_NOTE_PATTERNS = {
+    "property_plant_and_equipment": [
+        r"\bproperty[,]?\s+plant\s+and\s+equipment\b",
+        r"\bproperty\s+plant\s+equipment\b",
+    ],
+    "other_intangible_assets": [
+        r"\bother\s+intangible\s+assets\b",
+        r"\bintangible\s+assets\b",
+    ],
+    "financial_assets": [
+        r"\bfinancial\s+assets\b",
+        r"\bfinancial\s+assets\s+at\s+amortised\s+cost\b",
+        r"\bfinancial\s+assets\s+measured\s+at\s+fair\s+value\b",
+        r"\bfinancial\s+assets\s+at\s+fair\s+value\b",
+    ],
+    "investment_property": [
+        r"\binvestment\s+property\b",
+    ],
+    "biological_assets": [
+        r"\bbiological\s+assets\b",
+        r"\bbearer\s+biological\s+assets\b",
+        r"\bconsumable\s+biological\s+assets\b",
+        r"\bmature\s+plantations\b",
+        r"\bimmature\s+plantations\b",
+    ],
+    "inventories": [
+        r"\binventories\b",
+    ],
+    "trade_and_other_receivables": [
+        r"\btrade\s+and\s+other\s+receivables\b",
+        r"\btrade\s+receivables\b",
+    ],
+    "cash_and_cash_equivalents": [
+        r"\bcash\s+and\s+cash\s+equivalents\b",
+    ],
+    "borrowings": [
+        r"\bborrowings\b",
+        r"\binterest[-\s]?bearing\s+borrowings\b",
+        r"\bloans\s+and\s+borrowings\b",
+    ],
+    "trade_and_other_payables": [
+        r"\btrade\s+and\s+other\s+payables\b",
+        r"\btrade\s+payables\b",
+    ],
+    "revenue": [
+        r"\brevenue\b",
+        r"\bturnover\b",
+    ],
+    "finance_income_and_cost": [
+        r"\bfinance\s+income\b",
+        r"\bfinance\s+cost\b",
+        r"\bnet\s+finance\s+cost\b",
+    ],
+    "taxation": [
+        r"\bincome\s+tax\b",
+        r"\btax\s+expense\b",
+        r"\bdeferred\s+tax\b",
+    ],
+    "earnings_per_share": [
+        r"\bearnings\s+per\s+share\b",
+    ],
+    "stated_capital": [
+        r"\bstated\s+capital\b",
+        r"\bshare\s+capital\b",
+    ],
+    "related_party_transactions": [
+        r"\brelated\s+party\s+transactions\b",
+        r"\brelated\s+party\s+disclosures\b",
+        r"\bamounts\s+due\s+from\s+related\s+parties\b",
+        r"\bamounts\s+due\s+to\s+related\s+parties\b",
+    ],
+    "segment_information": [
+        r"\bsegment\s+information\b",
+        r"\boperating\s+segments\b",
+    ],
+}
 
 MAIN_STATEMENT_SECTION_KEYS = [
     "statement_of_financial_position",
@@ -106,7 +225,6 @@ MAIN_STATEMENT_SECTION_KEYS = [
     "statement_of_changes_in_equity",
     "statement_of_cash_flows",
 ]
-
 
 END_SECTION_PATTERNS = [
     r"\binvestor information\b",
@@ -121,7 +239,6 @@ END_SECTION_PATTERNS = [
     r"\bother disclosures\b",
     r"\bsupplementary information\b",
 ]
-
 
 UNWANTED_HEADING_PATTERNS = [
     r"\babout us\b",
@@ -150,7 +267,6 @@ UNWANTED_HEADING_PATTERNS = [
     r"\bbusiness review\b",
     r"\bleadership\b",
 ]
-
 
 FINANCIAL_ROW_LABEL_PATTERNS = [
     r"\brevenue\b",
@@ -186,6 +302,26 @@ FINANCIAL_ROW_LABEL_PATTERNS = [
     r"\bcash flows from operating activities\b",
     r"\bcash flows from investing activities\b",
     r"\bcash flows from financing activities\b",
+    r"\bnet assets per share\b",
+    r"\bmarket capitalisation\b",
+    r"\bdividend per share\b",
+    r"\breturn on equity\b",
+    r"\breturn on assets\b",
+    r"\bnet interest margin\b",
+]
+
+BANK_REPORT_KEYWORDS = [
+    r"\bbank\b",
+    r"\bbanking\b",
+    r"\bloans and advances\b",
+    r"\bdeposits from customers\b",
+    r"\bnet interest income\b",
+    r"\bcapital adequacy\b",
+    r"\bliquidity coverage ratio\b",
+    r"\bimpairment allowance\b",
+    r"\bstage 1\b",
+    r"\bstage 2\b",
+    r"\bstage 3\b",
 ]
 
 
@@ -241,11 +377,13 @@ def add_page_range(
     for page_number in range(start, end + 1):
         wanted_pages.add(page_number)
 
-    page_ranges.append({
-        "start": start,
-        "end": end,
-        "reason": reason,
-    })
+    page_ranges.append(
+        {
+            "start": start,
+            "end": end,
+            "reason": reason,
+        }
+    )
 
 
 def get_pdfplumber_table_count(input_pdf_path: str) -> dict[int, int]:
@@ -273,14 +411,18 @@ def extract_printed_page_number(raw_text: str) -> Optional[int]:
     for line in candidates:
         if re.fullmatch(r"\d{1,3}", line):
             value = int(line)
-            if 1 <= value <= 500:
+            if 1 <= value <= 700:
                 return value
 
     for line in candidates:
-        match = re.search(r"\b(?:annual report|interim report|financial statements).*?\b(\d{1,3})\s*$", line, re.I)
+        match = re.search(
+            r"\b(?:annual report|interim report|financial statements).*?\b(\d{1,3})\s*$",
+            line,
+            re.I,
+        )
         if match:
             value = int(match.group(1))
-            if 1 <= value <= 500:
+            if 1 <= value <= 700:
                 return value
 
     return None
@@ -305,7 +447,6 @@ def read_pdf_pages(input_pdf_path: str) -> list[dict]:
         financial_label_count = count_matches(normalized, FINANCIAL_ROW_LABEL_PATTERNS)
 
         is_toc = has_pattern(heading_text, TOC_PATTERNS)
-
         is_unwanted = has_pattern(heading_text, UNWANTED_HEADING_PATTERNS)
 
         has_statement_heading = any(
@@ -314,15 +455,28 @@ def read_pdf_pages(input_pdf_path: str) -> list[dict]:
             if key in MAIN_STATEMENT_SECTION_KEYS
         )
 
-        has_auditor_heading = count_matches(
-            heading_text,
-            SECTION_PATTERNS["independent_auditor_report"],
-        ) > 0
+        has_auditor_heading = (
+            count_matches(
+                heading_text,
+                SECTION_PATTERNS["independent_auditor_report"],
+            )
+            > 0
+        )
 
-        has_notes_heading = count_matches(
-            heading_text,
-            SECTION_PATTERNS["notes_to_financial_statements"],
-        ) > 0
+        has_notes_heading = (
+            count_matches(
+                heading_text,
+                SECTION_PATTERNS["notes_to_financial_statements"],
+            )
+            > 0
+        )
+
+        trader_useful_match_count = sum(
+            count_matches(heading_text, patterns)
+            for patterns in TRADER_USEFUL_SECTION_PATTERNS.values()
+        )
+
+        has_trader_useful_heading = trader_useful_match_count > 0
 
         is_table_like = (
             (table_count >= 1 and number_count >= 15)
@@ -330,37 +484,49 @@ def read_pdf_pages(input_pdf_path: str) -> list[dict]:
             or (financial_label_count >= 5 and number_count >= 20)
         )
 
+        is_financial_summary_like = (
+            has_trader_useful_heading
+            and number_count >= 15
+            and financial_label_count >= 2
+        )
+
         is_paragraph_heavy = (
             not has_statement_heading
             and not has_auditor_heading
             and not has_notes_heading
             and not is_toc
+            and not is_financial_summary_like
             and (
                 sentence_count >= 12
                 or (line_count >= 30 and financial_label_count < 4)
             )
         )
 
-        pages.append({
-            "pageNumber": page_number,
-            "text": text,
-            "normalizedText": normalized,
-            "headingText": heading_text,
-            "printedPageNumber": extract_printed_page_number(text),
-            "numberCount": number_count,
-            "sentenceCount": sentence_count,
-            "lineCount": line_count,
-            "tableCount": table_count,
-            "financialLabelCount": financial_label_count,
-            "isToc": is_toc,
-            "isUnwanted": is_unwanted,
-            "hasStatementHeading": has_statement_heading,
-            "hasAuditorHeading": has_auditor_heading,
-            "hasNotesHeading": has_notes_heading,
-            "isTableLike": is_table_like,
-            "isParagraphHeavy": is_paragraph_heavy,
-            "textLength": len(normalized),
-        })
+        pages.append(
+            {
+                "pageNumber": page_number,
+                "text": text,
+                "normalizedText": normalized,
+                "headingText": heading_text,
+                "printedPageNumber": extract_printed_page_number(text),
+                "numberCount": number_count,
+                "sentenceCount": sentence_count,
+                "lineCount": line_count,
+                "tableCount": table_count,
+                "financialLabelCount": financial_label_count,
+                "traderUsefulMatchCount": trader_useful_match_count,
+                "isToc": is_toc,
+                "isUnwanted": is_unwanted,
+                "hasStatementHeading": has_statement_heading,
+                "hasAuditorHeading": has_auditor_heading,
+                "hasNotesHeading": has_notes_heading,
+                "hasTraderUsefulHeading": has_trader_useful_heading,
+                "isTableLike": is_table_like,
+                "isFinancialSummaryLike": is_financial_summary_like,
+                "isParagraphHeavy": is_paragraph_heavy,
+                "textLength": len(normalized),
+            }
+        )
 
     doc.close()
     return pages
@@ -380,13 +546,22 @@ def detect_document_type(pages: list[dict]) -> tuple[str, str, float]:
     annual_score = sum(
         1
         for pattern in ANNUAL_KEYWORDS
-        if re.search(pattern, first_pages_text) or re.search(pattern, broader_text_sample)
+        if re.search(pattern, first_pages_text)
+        or re.search(pattern, broader_text_sample)
     )
 
     quarterly_score = sum(
         1
         for pattern in QUARTERLY_KEYWORDS
-        if re.search(pattern, first_pages_text) or re.search(pattern, broader_text_sample)
+        if re.search(pattern, first_pages_text)
+        or re.search(pattern, broader_text_sample)
+    )
+
+    legal_score = sum(
+        1
+        for pattern in LEGAL_DOCUMENT_KEYWORDS
+        if re.search(pattern, first_pages_text)
+        or re.search(pattern, broader_text_sample)
     )
 
     full_text_length = sum(page["textLength"] for page in pages)
@@ -394,6 +569,9 @@ def detect_document_type(pages: list[dict]) -> tuple[str, str, float]:
 
     if avg_text_length < 80:
         return "scanned_unknown", "ocr_required_filter", 0.45
+
+    if legal_score >= 4 and annual_score < 2 and quarterly_score < 2:
+        return "legal_document", "unsupported_document_filter", 0.95
 
     if total_pages <= 80 and quarterly_score >= 1:
         return "quarterly_report", "toc_statement_filter", 0.9
@@ -464,6 +642,7 @@ def extract_financial_block_from_toc_text(text: str) -> str:
         "financial information for last ten years",
         "quarterly statement",
         "investor information",
+        "investor relations",
         "other disclosures",
         "supplementary information",
         "notice of annual general meeting",
@@ -483,26 +662,224 @@ def extract_toc_section_printed_pages(pages: list[dict]) -> dict[str, int]:
 
     toc_pages = [page for page in pages if page["isToc"]]
 
-    for page in toc_pages:
-        block = extract_financial_block_from_toc_text(page["text"])
+    combined_patterns = {
+        **SECTION_PATTERNS,
+        **TRADER_USEFUL_SECTION_PATTERNS,
+    }
 
-        for section_key, patterns in SECTION_PATTERNS.items():
+    for page in toc_pages:
+        full_normalized_text = normalize_text(page["text"])
+        financial_block = extract_financial_block_from_toc_text(page["text"])
+
+        for section_key, patterns in combined_patterns.items():
             if section_key in detected:
                 continue
 
-            for pattern in patterns:
-                # Section title followed by a report page number.
-                regex = pattern + r".{0,140}?\b(\d{1,3})\b"
-                match = re.search(regex, block)
+            search_blocks = [financial_block]
 
-                if match:
-                    value = int(match.group(1))
+            if section_key in TRADER_USEFUL_SECTION_PATTERNS:
+                search_blocks.append(full_normalized_text)
 
-                    if 1 <= value <= 500:
-                        detected[section_key] = value
-                        break
+            for block in search_blocks:
+                for pattern in patterns:
+                    regex = pattern + r".{0,140}?\b(\d{1,3})\b"
+                    match = re.search(regex, block)
+
+                    if match:
+                        value = int(match.group(1))
+
+                        if 1 <= value <= 700:
+                            detected[section_key] = value
+                            break
+
+                if section_key in detected:
+                    break
 
     return detected
+
+
+def find_notes_end_page(pages: list[dict], notes_start_page: int) -> int:
+    for page in pages:
+        page_number = page["pageNumber"]
+
+        if page_number <= notes_start_page:
+            continue
+
+        if has_pattern(page["headingText"], END_SECTION_PATTERNS):
+            return page_number - 1
+
+    return len(pages)
+
+
+def detect_important_note_topic(text: str) -> Optional[str]:
+    normalized = normalize_text(text)
+
+    for topic, patterns in IMPORTANT_NOTE_PATTERNS.items():
+        if has_pattern(normalized, patterns):
+            return topic
+
+    return None
+
+
+def looks_like_note_heading(text: str) -> bool:
+    normalized = normalize_text(text)
+
+    return bool(
+        re.search(
+            r"\b\d{1,2}(\.\d{1,2})?\s+([a-z][a-z,&()/\-\s]{3,})",
+            normalized,
+        )
+    )
+
+
+def detect_note_heading_title(text: str) -> Optional[str]:
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    candidate_text = " ".join(lines[:10])
+    normalized = normalize_text(candidate_text)
+
+    match = re.search(
+        r"\b\d{1,2}(\.\d{1,2})?\s+([a-z][a-z,&()/\-\s]{3,120})",
+        normalized,
+    )
+
+    if match:
+        return match.group(2).strip()
+
+    return None
+
+
+def detect_all_note_headings(
+    pages: list[dict],
+    notes_start_page: int,
+    notes_end_page: int,
+) -> list[dict]:
+    note_headings = []
+
+    for page in pages:
+        page_number = page["pageNumber"]
+
+        if page_number < notes_start_page or page_number > notes_end_page:
+            continue
+
+        heading_source = page["headingText"]
+        title = detect_note_heading_title(page["text"])
+        topic = detect_important_note_topic(heading_source)
+
+        if title or topic or looks_like_note_heading(heading_source):
+            note_headings.append(
+                {
+                    "page": page_number,
+                    "title": title,
+                    "topic": topic,
+                    "important": topic is not None,
+                }
+            )
+
+    note_headings = sorted(note_headings, key=lambda item: item["page"])
+
+    deduped = []
+    seen_pages = set()
+
+    for heading in note_headings:
+        if heading["page"] in seen_pages:
+            continue
+
+        deduped.append(heading)
+        seen_pages.add(heading["page"])
+
+    return deduped
+
+
+def detect_important_note_pages(
+    pages: list[dict],
+    notes_start_page: int,
+    notes_end_page: int,
+) -> tuple[set[int], dict[str, list[int]]]:
+    note_headings = detect_all_note_headings(
+        pages=pages,
+        notes_start_page=notes_start_page,
+        notes_end_page=notes_end_page,
+    )
+
+    selected_pages: set[int] = set()
+    detected_important_notes: dict[str, list[int]] = {}
+
+    for index, note in enumerate(note_headings):
+        if not note["important"]:
+            continue
+
+        start_page = note["page"]
+
+        if index + 1 < len(note_headings):
+            end_page = note_headings[index + 1]["page"] - 1
+        else:
+            end_page = start_page
+
+        start_page, end_page = clamp_range(
+            start_page,
+            end_page,
+            len(pages),
+        )
+
+        selected_range = list(range(start_page, end_page + 1))
+
+        for page_number in selected_range:
+            selected_pages.add(page_number)
+
+        topic = note["topic"] or "unknown_important_note"
+        detected_important_notes.setdefault(topic, [])
+        detected_important_notes[topic].extend(selected_range)
+
+    return selected_pages, detected_important_notes
+
+
+def clean_selected_pages(
+    pages: list[dict],
+    wanted_pages: set[int],
+    keep_toc: bool,
+    keep_auditor: bool,
+) -> set[int]:
+    cleaned: set[int] = set()
+
+    for page_number in wanted_pages:
+        page = pages[page_number - 1]
+
+        if keep_toc and page["isToc"]:
+            cleaned.add(page_number)
+            continue
+
+        if keep_auditor and page["hasAuditorHeading"]:
+            cleaned.add(page_number)
+            continue
+
+        if page["hasStatementHeading"]:
+            cleaned.add(page_number)
+            continue
+
+        if page["hasNotesHeading"]:
+            cleaned.add(page_number)
+            continue
+
+        if page["hasTraderUsefulHeading"] and (
+            page["isFinancialSummaryLike"] or page["isTableLike"]
+        ):
+            cleaned.add(page_number)
+            continue
+
+        if detect_important_note_topic(page["headingText"]):
+            cleaned.add(page_number)
+            continue
+
+        if page["isUnwanted"]:
+            continue
+
+        if page["isParagraphHeavy"]:
+            continue
+
+        if page["isTableLike"] and page["financialLabelCount"] >= 2:
+            cleaned.add(page_number)
+
+    return cleaned
 
 
 def toc_based_filter(
@@ -513,18 +890,6 @@ def toc_based_filter(
     total_pages = len(pages)
     wanted_pages: set[int] = set()
     page_ranges: list[PageRange] = []
-
-    toc_page_numbers = get_toc_pages(pages)
-
-    for page_number in toc_page_numbers:
-        add_page_range(
-            wanted_pages,
-            page_ranges,
-            page_number,
-            page_number,
-            total_pages,
-            "table_of_contents",
-        )
 
     detected_printed_pages = extract_toc_section_printed_pages(pages)
 
@@ -558,7 +923,7 @@ def toc_based_filter(
 
         next_start = None
 
-        for later_key, later_page in ordered_sections[index + 1:]:
+        for later_key, later_page in ordered_sections[index + 1 :]:
             if later_page > start_page:
                 next_start = later_page
                 break
@@ -595,11 +960,53 @@ def toc_based_filter(
 
         elif section_key == "notes_to_financial_statements":
             if include_notes == "first":
-                end_page = start_page
+                add_page_range(
+                    wanted_pages,
+                    page_ranges,
+                    start_page,
+                    start_page,
+                    total_pages,
+                    "notes_to_financial_statements_first_page_from_toc",
+                )
+
             elif include_notes == "full":
                 end_page = find_notes_end_page(pages, start_page)
+
+                add_page_range(
+                    wanted_pages,
+                    page_ranges,
+                    start_page,
+                    end_page,
+                    total_pages,
+                    "notes_to_financial_statements_full_from_toc",
+                )
+
+            elif include_notes == "important":
+                notes_end_page = find_notes_end_page(pages, start_page)
+
+                important_note_pages, detected_important_notes = detect_important_note_pages(
+                    pages=pages,
+                    notes_start_page=start_page,
+                    notes_end_page=notes_end_page,
+                )
+
+                for page_number in sorted(important_note_pages):
+                    wanted_pages.add(page_number)
+
+                for topic, topic_pages in detected_important_notes.items():
+                    page_ranges.append(
+                        {
+                            "start": min(topic_pages),
+                            "end": max(topic_pages),
+                            "reason": f"important_note_{topic}",
+                        }
+                    )
+
+        elif section_key in TRADER_USEFUL_SECTION_PATTERNS:
+            if next_start:
+                end_page = min(next_start - 1, start_page + 2)
             else:
-                continue
+                end_page = start_page
 
             add_page_range(
                 wanted_pages,
@@ -607,32 +1014,19 @@ def toc_based_filter(
                 start_page,
                 end_page,
                 total_pages,
-                "notes_to_financial_statements_from_toc",
+                f"{section_key}_from_toc",
             )
 
     cleaned_pages = clean_selected_pages(
         pages,
         wanted_pages,
-        keep_toc=True,
+        keep_toc=False,
         keep_auditor=include_auditor,
     )
 
     confidence = 0.93 if len(cleaned_pages) >= 4 else 0.65
 
     return sorted(cleaned_pages), page_ranges, confidence, detected_pdf_pages
-
-
-def find_notes_end_page(pages: list[dict], notes_start_page: int) -> int:
-    for page in pages:
-        page_number = page["pageNumber"]
-
-        if page_number <= notes_start_page:
-            continue
-
-        if has_pattern(page["headingText"], END_SECTION_PATTERNS):
-            return page_number - 1
-
-    return len(pages)
 
 
 def fallback_heading_filter(
@@ -649,14 +1043,6 @@ def fallback_heading_filter(
         page_number = page["pageNumber"]
 
         if page["isToc"]:
-            add_page_range(
-                wanted_pages,
-                page_ranges,
-                page_number,
-                page_number,
-                total_pages,
-                "table_of_contents",
-            )
             detected["table_of_contents"] = page_number
             continue
 
@@ -689,70 +1075,75 @@ def fallback_heading_filter(
 
         if include_notes != "none" and page["hasNotesHeading"]:
             if include_notes == "first":
-                end_page = page_number
-            else:
+                add_page_range(
+                    wanted_pages,
+                    page_ranges,
+                    page_number,
+                    page_number,
+                    total_pages,
+                    "notes_first_page_heading_fallback",
+                )
+
+            elif include_notes == "full":
                 end_page = find_notes_end_page(pages, page_number)
 
+                add_page_range(
+                    wanted_pages,
+                    page_ranges,
+                    page_number,
+                    end_page,
+                    total_pages,
+                    "notes_full_heading_fallback",
+                )
+
+            elif include_notes == "important":
+                notes_end_page = find_notes_end_page(pages, page_number)
+
+                important_note_pages, detected_important_notes = detect_important_note_pages(
+                    pages=pages,
+                    notes_start_page=page_number,
+                    notes_end_page=notes_end_page,
+                )
+
+                for selected_page in sorted(important_note_pages):
+                    wanted_pages.add(selected_page)
+
+                for topic, topic_pages in detected_important_notes.items():
+                    page_ranges.append(
+                        {
+                            "start": min(topic_pages),
+                            "end": max(topic_pages),
+                            "reason": f"important_note_{topic}",
+                        }
+                    )
+
+            detected["notes_to_financial_statements"] = page_number
+            continue
+
+        if page["hasTraderUsefulHeading"] and (
+            page["isFinancialSummaryLike"] or page["isTableLike"]
+        ):
             add_page_range(
                 wanted_pages,
                 page_ranges,
                 page_number,
-                end_page,
+                page_number,
                 total_pages,
-                "notes_heading_fallback",
+                "trader_useful_heading_fallback",
             )
-            detected["notes_to_financial_statements"] = page_number
+            detected[f"trader_useful_page_{page_number}"] = page_number
+            continue
 
     cleaned_pages = clean_selected_pages(
         pages,
         wanted_pages,
-        keep_toc=True,
+        keep_toc=False,
         keep_auditor=include_auditor,
     )
 
     confidence = 0.75 if len(cleaned_pages) >= 3 else 0.45
 
     return sorted(cleaned_pages), page_ranges, confidence, detected
-
-
-def clean_selected_pages(
-    pages: list[dict],
-    wanted_pages: set[int],
-    keep_toc: bool,
-    keep_auditor: bool,
-) -> set[int]:
-    cleaned: set[int] = set()
-
-    for page_number in wanted_pages:
-        page = pages[page_number - 1]
-
-        if keep_toc and page["isToc"]:
-            cleaned.add(page_number)
-            continue
-
-        if keep_auditor and page["hasAuditorHeading"]:
-            cleaned.add(page_number)
-            continue
-
-        if page["hasStatementHeading"]:
-            cleaned.add(page_number)
-            continue
-
-        if page["hasNotesHeading"]:
-            cleaned.add(page_number)
-            continue
-
-        if page["isUnwanted"]:
-            continue
-
-        if page["isParagraphHeavy"]:
-            continue
-
-        # Keep continuation pages only when they are table-like and financial.
-        if page["isTableLike"] and page["financialLabelCount"] >= 2:
-            cleaned.add(page_number)
-
-    return cleaned
 
 
 def filter_report(
@@ -805,11 +1196,29 @@ def create_filtered_pdf(
     return page_map
 
 
+def create_selected_pages_json(
+    input_pdf_path: str,
+    selected_pages_json_path: str,
+    wanted_pages: list[int],
+) -> None:
+    data = {
+        "pdf_name": Path(input_pdf_path).name,
+        "selected_pages": wanted_pages,
+    }
+
+    Path(selected_pages_json_path).parent.mkdir(parents=True, exist_ok=True)
+    Path(selected_pages_json_path).write_text(
+        json.dumps(data, indent=2),
+        encoding="utf-8",
+    )
+
+
 def filter_pdf(
     input_pdf_path: str,
     output_pdf_path: Optional[str] = None,
+    selected_pages_json_path: Optional[str] = None,
     log_path: Optional[str] = None,
-    include_notes: NotesMode = "none",
+    include_notes: NotesMode = "important",
     include_auditor: bool = True,
 ) -> FilterResult:
     pages = read_pdf_pages(input_pdf_path)
@@ -817,7 +1226,13 @@ def filter_pdf(
     document_type, filter_profile, type_confidence = detect_document_type(pages)
 
     if document_type in ["annual_report", "quarterly_report", "other_report"]:
-        wanted_pages, page_ranges, filter_confidence, detection_method, detected_sections = filter_report(
+        (
+            wanted_pages,
+            page_ranges,
+            filter_confidence,
+            detection_method,
+            detected_sections,
+        ) = filter_report(
             pages,
             include_notes=include_notes,
             include_auditor=include_auditor,
@@ -828,6 +1243,8 @@ def filter_pdf(
         filter_confidence = 0.4
         detection_method = "unsupported_or_scanned"
         detected_sections = {}
+
+    wanted_pages = sorted(set(wanted_pages))
 
     all_pages = set(range(1, len(pages) + 1))
     removed_pages = sorted(all_pages - set(wanted_pages))
@@ -841,6 +1258,13 @@ def filter_pdf(
             wanted_pages=wanted_pages,
         )
 
+    if selected_pages_json_path:
+        create_selected_pages_json(
+            input_pdf_path=input_pdf_path,
+            selected_pages_json_path=selected_pages_json_path,
+            wanted_pages=wanted_pages,
+        )
+
     confidence = round((type_confidence + filter_confidence) / 2, 2)
 
     result: FilterResult = {
@@ -851,6 +1275,7 @@ def filter_pdf(
         "removedPages": removed_pages,
         "pageRanges": page_ranges,
         "filteredPdfPath": output_pdf_path if output_pdf_path and wanted_pages else None,
+        "selectedPagesJsonPath": selected_pages_json_path,
         "filteredPageMap": filtered_page_map,
         "confidence": confidence,
         "totalPages": len(pages),
@@ -873,17 +1298,23 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="TOC-based financial statement page filter."
+        description="CSE financial and trader-useful page filter."
     )
 
     parser.add_argument("input_pdf", help="Original input PDF path")
     parser.add_argument("--output-pdf", help="Optional filtered PDF output path")
+    parser.add_argument("--selected-pages-json", help="Simple selected pages JSON path")
     parser.add_argument("--log", help="Optional JSON filter log path")
     parser.add_argument(
         "--include-notes",
-        choices=["none", "first", "full"],
-        default="none",
-        help="none = do not include notes, first = only notes start page, full = full notes range",
+        choices=["none", "first", "important", "full"],
+        default="important",
+        help=(
+            "none = do not include notes, "
+            "first = only notes start page, "
+            "important = only important note topics, "
+            "full = full notes range"
+        ),
     )
     parser.add_argument(
         "--no-auditor",
@@ -896,6 +1327,7 @@ if __name__ == "__main__":
     result = filter_pdf(
         input_pdf_path=args.input_pdf,
         output_pdf_path=args.output_pdf,
+        selected_pages_json_path=args.selected_pages_json,
         log_path=args.log,
         include_notes=args.include_notes,
         include_auditor=not args.no_auditor,
