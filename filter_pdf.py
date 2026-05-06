@@ -168,9 +168,7 @@ TRADER_USEFUL_SECTION_PATTERNS = {
 }
 
 IMPORTANT_NOTE_PATTERNS = {
-    "gross_income": [
-        r"\bgross\s+income\b",
-    ],
+    "gross_income": [r"\bgross\s+income\b"],
     "net_interest_income": [
         r"\bnet\s+interest\s+income\b",
         r"\binterest\s+income\b",
@@ -191,12 +189,8 @@ IMPORTANT_NOTE_PATTERNS = {
         r"\btax\s+expense\b",
         r"\bdeferred\s+tax\b",
     ],
-    "earnings_per_share": [
-        r"\bearnings\s+per\s+share\b",
-    ],
-    "cash_and_cash_equivalents": [
-        r"\bcash\s+and\s+cash\s+equivalents\b",
-    ],
+    "earnings_per_share": [r"\bearnings\s+per\s+share\b"],
+    "cash_and_cash_equivalents": [r"\bcash\s+and\s+cash\s+equivalents\b"],
     "balances_with_central_bank": [
         r"\bbalances\s+with\s+central\s+bank\b",
         r"\bbalance\s+with\s+central\s+bank\b",
@@ -217,33 +211,23 @@ IMPORTANT_NOTE_PATTERNS = {
         r"\bloans\s+and\s+advances\b",
         r"\badvances\s+to\s+customers\b",
     ],
-    "investment_property": [
-        r"\binvestment\s+property\b",
-    ],
+    "investment_property": [r"\binvestment\s+property\b"],
     "property_plant_and_equipment": [
         r"\bproperty[,]?\s+plant\s+and\s+equipment\b",
         r"\bproperty\s+plant\s+equipment\b",
     ],
-    "right_of_use_assets": [
-        r"\bright[-\s]?of[-\s]?use\s+assets\b",
-    ],
+    "right_of_use_assets": [r"\bright[-\s]?of[-\s]?use\s+assets\b"],
     "other_intangible_assets": [
         r"\bother\s+intangible\s+assets\b",
         r"\bintangible\s+assets\b",
     ],
-    "other_assets": [
-        r"\bother\s+assets\b",
-    ],
-    "due_to_banks": [
-        r"\bdue\s+to\s+banks\b",
-    ],
+    "other_assets": [r"\bother\s+assets\b"],
+    "due_to_banks": [r"\bdue\s+to\s+banks\b"],
     "financial_liabilities": [
         r"\bfinancial\s+liabilities\b",
         r"\bfinancial\s+liabilities\s+at\s+amortised\s+cost\b",
     ],
-    "debt_securities_issued": [
-        r"\bdebt\s+securities\s+issued\b",
-    ],
+    "debt_securities_issued": [r"\bdebt\s+securities\s+issued\b"],
     "borrowings": [
         r"\bborrowings\b",
         r"\binterest[-\s]?bearing\s+borrowings\b",
@@ -257,22 +241,14 @@ IMPORTANT_NOTE_PATTERNS = {
         r"\btrade\s+and\s+other\s+payables\b",
         r"\btrade\s+payables\b",
     ],
-    "inventories": [
-        r"\binventories\b",
-    ],
-    "revenue": [
-        r"\brevenue\b",
-        r"\bturnover\b",
-    ],
+    "inventories": [r"\binventories\b"],
+    "revenue": [r"\brevenue\b", r"\bturnover\b"],
     "finance_income_and_cost": [
         r"\bfinance\s+income\b",
         r"\bfinance\s+cost\b",
         r"\bnet\s+finance\s+cost\b",
     ],
-    "stated_capital": [
-        r"\bstated\s+capital\b",
-        r"\bshare\s+capital\b",
-    ],
+    "stated_capital": [r"\bstated\s+capital\b", r"\bshare\s+capital\b"],
     "reserves": [
         r"\bstatutory\s+reserve\b",
         r"\bother\s+reserves\b",
@@ -282,12 +258,8 @@ IMPORTANT_NOTE_PATTERNS = {
         r"\bcommitments\s+and\s+contingencies\b",
         r"\bcontingent\s+liabilities\b",
     ],
-    "net_asset_value_per_share": [
-        r"\bnet\s+asset\s+value\s+per\s+share\b",
-    ],
-    "maturity_analysis": [
-        r"\bmaturity\s+analysis\b",
-    ],
+    "net_asset_value_per_share": [r"\bnet\s+asset\s+value\s+per\s+share\b"],
+    "maturity_analysis": [r"\bmaturity\s+analysis\b"],
     "segment_information": [
         r"\bsegment\s+information\b",
         r"\bsegmental\s+analysis\b",
@@ -341,6 +313,17 @@ END_SECTION_PATTERNS = [
     r"\bsupplementary information\b",
     r"\bcompliance with disclosure requirements\b",
     r"\bawards\s*&\s*accolades\b",
+]
+
+INVESTOR_RELATIONS_END_PATTERNS = [
+    r"\bbranch network\b",
+    r"\bnetwork of group companies\b",
+    r"\bcorrespondent relationships\b",
+    r"\bgri content index\b",
+    r"\bglossary\b",
+    r"\bnotice of meeting\b",
+    r"\bcorporate information\b",
+    r"\bform of proxy\b",
 ]
 
 UNWANTED_HEADING_PATTERNS = [
@@ -496,6 +479,40 @@ def get_pdfplumber_table_count(input_pdf_path: str) -> dict[int, int]:
 
     return table_counts
 
+def is_toc_like_page(text: str) -> bool:
+    normalized = normalize_text(text)
+    lines = [normalize_text(line) for line in text.splitlines() if line.strip()]
+
+    numbered_heading_lines = 0
+
+    for line in lines:
+        if re.search(r"^\s*\d{1,3}\s+[a-z]", line):
+            numbered_heading_lines += 1
+
+    has_financial_info_block = (
+        "financial information" in normalized
+        and (
+            "statement of profit or loss" in normalized
+            or "statement of financial position" in normalized
+            or "notes to the financial statements" in normalized
+        )
+    )
+
+    has_supplementary_info_block = (
+        "supplementary information" in normalized
+        and (
+            "ten-year summary" in normalized
+            or "notice of meeting" in normalized
+            or "form of proxy" in normalized
+        )
+    )
+
+    return (
+        numbered_heading_lines >= 8
+        or has_financial_info_block
+        or has_supplementary_info_block
+    )
+
 
 def extract_printed_page_number(raw_text: str) -> Optional[int]:
     lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
@@ -539,7 +556,7 @@ def read_pdf_pages(input_pdf_path: str) -> list[dict]:
         table_count = table_counts.get(page_number, 0)
         financial_label_count = count_matches(normalized, FINANCIAL_ROW_LABEL_PATTERNS)
 
-        is_toc = has_pattern(heading_text, TOC_PATTERNS)
+        is_toc = has_pattern(heading_text, TOC_PATTERNS) or is_toc_like_page(text)
         is_unwanted = has_pattern(heading_text, UNWANTED_HEADING_PATTERNS)
 
         has_statement_heading = any(
@@ -627,7 +644,7 @@ def read_pdf_pages(input_pdf_path: str) -> list[dict]:
 
 def is_bank_report(pages: list[dict]) -> bool:
     sample_text = " ".join(
-        page["normalizedText"] for page in pages[: min(120, len(pages))]
+        page["normalizedText"] for page in pages[: min(150, len(pages))]
     )
 
     score = sum(
@@ -727,6 +744,27 @@ def printed_to_pdf_page(
     return None
 
 
+def find_page_by_heading(
+    pages: list[dict],
+    patterns: list[str],
+    start_page: int = 1,
+    end_page: Optional[int] = None,
+) -> Optional[int]:
+    if end_page is None:
+        end_page = len(pages)
+
+    for page in pages:
+        page_number = page["pageNumber"]
+
+        if page_number < start_page or page_number > end_page:
+            continue
+
+        if has_pattern(page["headingText"], patterns):
+            return page_number
+
+    return None
+
+
 def extract_financial_block_from_toc_text(text: str) -> str:
     normalized = normalize_text(text)
 
@@ -760,7 +798,6 @@ def extract_financial_block_from_toc_text(text: str) -> str:
 
 def extract_toc_section_printed_pages(pages: list[dict]) -> dict[str, int]:
     detected: dict[str, int] = {}
-
     toc_pages = [page for page in pages if page["isToc"]]
 
     combined_patterns = {
@@ -769,25 +806,79 @@ def extract_toc_section_printed_pages(pages: list[dict]) -> dict[str, int]:
     }
 
     for page in toc_pages:
-        full_normalized_text = normalize_text(page["text"])
+        raw_lines = [line.strip() for line in page["text"].splitlines() if line.strip()]
+        normalized_lines = [normalize_text(line) for line in raw_lines]
+
+        full_text = normalize_text(page["text"])
         financial_block = extract_financial_block_from_toc_text(page["text"])
 
         for section_key, patterns in combined_patterns.items():
             if section_key in detected:
                 continue
 
+            # First priority: line-based matching.
+            # This handles formats like:
+            # 286 Notes to the Financial Statements
+            # 512 Investor Relations
+            for line in normalized_lines:
+                for pattern in patterns:
+                    before_match = re.search(
+                        r"^\s*(\d{1,3})\s+.{0,20}?" + pattern,
+                        line,
+                    )
+
+                    if before_match:
+                        value = int(before_match.group(1))
+
+                        if 1 <= value <= 700:
+                            detected[section_key] = value
+                            break
+
+                    after_match = re.search(
+                        pattern + r".{0,80}?\b(\d{1,3})\s*$",
+                        line,
+                    )
+
+                    if after_match:
+                        value = int(after_match.group(1))
+
+                        if 1 <= value <= 700:
+                            detected[section_key] = value
+                            break
+
+                if section_key in detected:
+                    break
+
+            if section_key in detected:
+                continue
+
+            # Second priority: block-based fallback.
             search_blocks = [financial_block]
 
             if section_key in TRADER_USEFUL_SECTION_PATTERNS:
-                search_blocks.append(full_normalized_text)
+                search_blocks.append(full_text)
 
             for block in search_blocks:
                 for pattern in patterns:
-                    regex = pattern + r".{0,160}?\b(\d{1,3})\b"
-                    match = re.search(regex, block)
+                    # Prefer page number before title first.
+                    # Example: 286 Notes to the Financial Statements
+                    regex_before = r"\b(\d{1,3})\b.{0,60}?" + pattern
+                    match_before = re.search(regex_before, block)
 
-                    if match:
-                        value = int(match.group(1))
+                    if match_before:
+                        value = int(match_before.group(1))
+
+                        if 1 <= value <= 700:
+                            detected[section_key] = value
+                            break
+
+                    # Fallback: title before page number.
+                    # Example: Notes to the Financial Statements ........ 286
+                    regex_after = pattern + r".{0,120}?\b(\d{1,3})\b"
+                    match_after = re.search(regex_after, block)
+
+                    if match_after:
+                        value = int(match_after.group(1))
 
                         if 1 <= value <= 700:
                             detected[section_key] = value
@@ -799,17 +890,51 @@ def extract_toc_section_printed_pages(pages: list[dict]) -> dict[str, int]:
     return detected
 
 
-def find_notes_end_page(pages: list[dict], notes_start_page: int) -> int:
+def find_notes_end_page(
+    pages: list[dict],
+    notes_start_page: int,
+    minimum_notes_pages: int = 25,
+) -> int:
+    """
+    Finds the real end of the Notes to the Financial Statements section.
+
+    Important:
+    The first few Notes pages often contain a notes table of contents.
+    That contents page may mention end sections like:
+        - Compliance with Disclosure Requirements
+        - Investor Relations
+        - Supplementary Information
+
+    So we must not allow the notes section to end too early.
+    """
+
+    earliest_allowed_end_check = notes_start_page + minimum_notes_pages
+
     for page in pages:
         page_number = page["pageNumber"]
 
-        if page_number <= notes_start_page:
+        if page_number <= earliest_allowed_end_check:
             continue
 
-        if has_pattern(page["headingText"], END_SECTION_PATTERNS):
+        heading_text = page["headingText"]
+
+        if has_pattern(heading_text, END_SECTION_PATTERNS):
             return page_number - 1
 
     return len(pages)
+
+
+def find_investor_relations_end_page(pages: list[dict], investor_start_page: int) -> int:
+    for page in pages:
+        page_number = page["pageNumber"]
+
+        if page_number <= investor_start_page:
+            continue
+
+        if has_pattern(page["headingText"], INVESTOR_RELATIONS_END_PATTERNS):
+            return page_number - 1
+
+    return min(investor_start_page + 20, len(pages))
 
 
 def detect_important_note_topic(text: str) -> Optional[str]:
@@ -988,6 +1113,67 @@ def clean_selected_pages(
     return cleaned
 
 
+def apply_bank_safety_ranges(
+    pages: list[dict],
+    wanted_pages: set[int],
+    page_ranges: list[PageRange],
+    detected_pdf_pages: dict[str, int],
+) -> None:
+    total_pages = len(pages)
+
+    performance_page = detected_pdf_pages.get("performance_highlights")
+    if performance_page:
+        add_page_range(
+            wanted_pages,
+            page_ranges,
+            performance_page,
+            min(performance_page + 1, total_pages),
+            total_pages,
+            "bank_performance_highlights_safety",
+        )
+
+    financial_capital_page = detected_pdf_pages.get("financial_capital")
+    if financial_capital_page:
+        add_page_range(
+            wanted_pages,
+            page_ranges,
+            financial_capital_page,
+            min(financial_capital_page + 7, total_pages),
+            total_pages,
+            "bank_financial_capital_safety",
+        )
+
+    notes_start = detected_pdf_pages.get("notes_to_financial_statements")
+    if notes_start:
+        notes_end = find_notes_end_page(
+        pages,
+        notes_start,
+        minimum_notes_pages=80,
+    )
+
+        add_page_range(
+            wanted_pages,
+            page_ranges,
+            notes_start,
+            notes_end,
+            total_pages,
+            "bank_full_notes_safety",
+        )
+
+    investor_start = detected_pdf_pages.get("investor_information")
+    if investor_start:
+        investor_end = find_investor_relations_end_page(pages, investor_start)
+
+        add_page_range(
+            wanted_pages,
+            page_ranges,
+            investor_start,
+            investor_end,
+            total_pages,
+            "bank_investor_relations_safety",
+        )
+
+
 def toc_based_filter(
     pages: list[dict],
     include_notes: NotesMode = "none",
@@ -1077,7 +1263,11 @@ def toc_based_filter(
                 )
 
             elif include_notes == "full":
-                end_page = find_notes_end_page(pages, start_page)
+                end_page = find_notes_end_page(
+                pages,
+                start_page,
+                minimum_notes_pages=80 if bank_report else 25,
+                )
 
                 add_page_range(
                     wanted_pages,
@@ -1111,10 +1301,7 @@ def toc_based_filter(
 
         elif section_key in TRADER_USEFUL_SECTION_PATTERNS:
             if section_key == "investor_information":
-                if next_start:
-                    end_page = next_start - 1
-                else:
-                    end_page = min(start_page + 25, total_pages)
+                end_page = find_investor_relations_end_page(pages, start_page)
 
                 add_page_range(
                     wanted_pages,
@@ -1154,6 +1341,14 @@ def toc_based_filter(
                     total_pages,
                     f"{section_key}_from_toc",
                 )
+
+    if bank_report:
+        apply_bank_safety_ranges(
+            pages=pages,
+            wanted_pages=wanted_pages,
+            page_ranges=page_ranges,
+            detected_pdf_pages=detected_pdf_pages,
+        )
 
     cleaned_pages = clean_selected_pages(
         pages,
@@ -1376,6 +1571,18 @@ def filter_pdf(
         effective_include_notes = "full"
         filter_profile = "bank_annual_report_filter"
 
+    elif document_type == "annual_report":
+        if include_notes == "full":
+            effective_include_notes = "important"
+
+        filter_profile = "non_bank_annual_report_filter"
+
+    elif document_type == "quarterly_report":
+        if include_notes == "full":
+            effective_include_notes = "important"
+
+        filter_profile = "quarterly_report_filter"
+
     if document_type in ["annual_report", "quarterly_report", "other_report"]:
         (
             wanted_pages,
@@ -1445,8 +1652,6 @@ def filter_pdf(
         )
 
     return result
-
-
 if __name__ == "__main__":
     import argparse
 
