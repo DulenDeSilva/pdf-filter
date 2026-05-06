@@ -643,17 +643,94 @@ def read_pdf_pages(input_pdf_path: str) -> list[dict]:
 
 
 def is_bank_report(pages: list[dict]) -> bool:
-    sample_text = " ".join(
+    """
+    Detects whether the report belongs to a bank or financial institution.
+
+    This must be strict because non-bank annual reports may contain words like:
+    - interest income
+    - financial assets
+    - borrowings
+    - cash and cash equivalents
+
+    Those alone should NOT make a company a bank.
+    """
+
+    first_30_pages_text = " ".join(
+        page["normalizedText"] for page in pages[: min(30, len(pages))]
+    )
+
+    first_150_pages_text = " ".join(
         page["normalizedText"] for page in pages[: min(150, len(pages))]
     )
 
-    score = sum(
-        1
-        for pattern in BANK_REPORT_KEYWORDS
-        if re.search(pattern, sample_text)
+    strong_bank_patterns = [
+        r"\bbank\b",
+        r"\bbanking\b",
+        r"\blicensed commercial bank\b",
+        r"\blicensed specialised bank\b",
+        r"\bcentral bank of sri lanka\b",
+        r"\bcbs l\b",
+        r"\bbanking act\b",
+        r"\bbasel iii\b",
+    ]
+
+    bank_business_patterns = [
+        r"\bloans and advances\b",
+        r"\bloans and advances to customers\b",
+        r"\bdeposits from customers\b",
+        r"\bcustomer deposits\b",
+        r"\bnet interest income\b",
+        r"\binterest income\b",
+        r"\binterest expense\b",
+        r"\bimpairment allowance\b",
+        r"\bcredit risk\b",
+        r"\bliquidity coverage ratio\b",
+        r"\bnet stable funding ratio\b",
+        r"\bcapital adequacy\b",
+        r"\btier 1 capital\b",
+        r"\bcommon equity tier 1\b",
+        r"\bstage 1\b",
+        r"\bstage 2\b",
+        r"\bstage 3\b",
+    ]
+
+    non_bank_exclusion_patterns = [
+        r"\bconstruction\b",
+        r"\bapparel\b",
+        r"\bmanufacturing\b",
+        r"\bplantation\b",
+        r"\bhotel\b",
+        r"\bproperty development\b",
+        r"\bconsumer\b",
+        r"\bengineering\b",
+        r"\btextile\b",
+    ]
+
+    strong_bank_score = sum(
+        1 for pattern in strong_bank_patterns
+        if re.search(pattern, first_30_pages_text)
     )
 
-    return score >= 4
+    bank_business_score = sum(
+        1 for pattern in bank_business_patterns
+        if re.search(pattern, first_150_pages_text)
+    )
+
+    non_bank_score = sum(
+        1 for pattern in non_bank_exclusion_patterns
+        if re.search(pattern, first_30_pages_text)
+    )
+
+    # Must have strong bank identity early in the report.
+    if strong_bank_score >= 2 and bank_business_score >= 4:
+        return True
+
+    # If there is only one strong bank word, require many bank-specific business terms
+    # and no strong non-bank industry identity.
+    if strong_bank_score >= 1 and bank_business_score >= 7 and non_bank_score == 0:
+        return True
+
+    return False
 
 
 def detect_document_type(pages: list[dict]) -> tuple[str, str, float]:
