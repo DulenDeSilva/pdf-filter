@@ -24,8 +24,9 @@ st.set_page_config(
 st.title("CSE PDF Filtering Tool")
 
 st.write(
-    "Upload an annual, quarterly, or other CSE PDF report. "
-    "The tool will identify selected pages and optionally generate a filtered PDF."
+    "Upload a CSE annual or quarterly report. "
+    "The tool will identify target financial statement pages, notes table of contents, "
+    "investor/shareholder information, and summary pages."
 )
 
 uploaded_file = st.file_uploader(
@@ -34,25 +35,8 @@ uploaded_file = st.file_uploader(
 )
 
 create_filtered_pdf = st.checkbox(
-    "Create filtered PDF",
+    "Create filtered PDF for manual verification",
     value=True,
-)
-
-include_auditor = st.checkbox(
-    "Include Independent Auditor's Report pages",
-    value=True,
-)
-
-include_notes = st.selectbox(
-    "Include Notes to Financial Statements",
-    options=["none", "first", "important", "full"],
-    index=2,
-    help=(
-        "none = do not include notes, "
-        "first = include only the notes starting page, "
-        "important = include only important note topics, "
-        "full = include the full notes section if detected"
-    ),
 )
 
 if uploaded_file:
@@ -74,8 +58,6 @@ if uploaded_file:
                 output_pdf_path=str(output_pdf_path) if create_filtered_pdf else None,
                 selected_pages_json_path=str(selected_pages_json_path),
                 log_path=str(log_path),
-                include_notes=include_notes,
-                include_auditor=include_auditor,
             )
 
         st.success("Filtering completed.")
@@ -84,30 +66,46 @@ if uploaded_file:
 
         col1.metric("Document Type", result["documentType"])
         col2.metric("Total Pages", result["totalPages"])
-        col3.metric("Selected Pages", len(result["wantedPages"]))
+        col3.metric("Selected Pages", len(result["selectedPages"]))
         col4.metric("Confidence", result["confidence"])
 
         st.divider()
 
-        st.subheader("Selected Pages JSON Format")
-        st.json(
-            {
-                "pdf_name": input_path.name,
-                "selected_pages": result["wantedPages"],
-            }
-        )
+        st.subheader("Final Selected Pages JSON")
+
+        final_json = {
+            "pdf_name": result["pdfName"],
+            "selected_pages": result["selectedPages"],
+            "found_sections": result["foundSections"],
+            "missing_sections": result["missingSections"],
+        }
+
+        st.json(final_json)
 
         st.subheader("Selected Pages")
-        st.write(result["wantedPages"])
+        st.write(result["selectedPages"])
 
-        st.subheader("Removed Pages")
-        st.write(result["removedPages"])
+        st.subheader("Found Sections")
+        st.json(result["foundSections"])
+
+        st.subheader("Missing Sections")
+        if result["missingSections"]:
+            st.warning(", ".join(result["missingSections"]))
+        else:
+            st.success("No missing sections detected.")
+
+        st.subheader("Detected TOC Page Numbers")
+        st.write("Printed page numbers detected from contents:")
+        st.json(result["detectedTocPrintedPages"])
+
+        st.write("Converted PDF page numbers:")
+        st.json(result["detectedTocPdfPages"])
 
         st.subheader("Page Ranges / Reasons")
         st.json(result["pageRanges"])
 
-        st.subheader("Full Result")
-        st.json(result)
+        with st.expander("Full Result Log"):
+            st.json(result)
 
         st.divider()
 
@@ -123,7 +121,7 @@ if uploaded_file:
         if log_path.exists():
             with open(log_path, "rb") as file:
                 st.download_button(
-                    label="Download Filter Log JSON",
+                    label="Download Full Filter Log JSON",
                     data=file,
                     file_name=log_path.name,
                     mime="application/json",
@@ -139,5 +137,5 @@ if uploaded_file:
                 )
 
             st.info(
-                "Download and open the filtered PDF to manually verify whether the selected pages are correct."
+                "Download and open the filtered PDF to manually verify the selected pages."
             )
